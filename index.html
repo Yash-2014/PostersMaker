@@ -52,7 +52,10 @@ button.ghost{background:#fff;border:1px solid #ddd}
     </select>
 
     <div style="height:8px"></div>
-    <button class="primary" id="loadPosters">Load Posters</button>
+    <div style="display:flex;gap:8px;">
+      <button class="primary" id="loadPosters">Load Posters</button>
+      <button class="ghost" id="nextPosters">Next Posters</button>
+    </div>
   </div>
 
   <div class="card">
@@ -92,13 +95,14 @@ const posterGrid=document.getElementById('posterGrid');
 const canvas=document.getElementById('canvas');
 const ctx=canvas.getContext('2d');
 let selectedPoster=null;
+let currentPage=1;
 
-// Pixabay image loader
-document.getElementById('loadPosters').onclick=async()=>{
+// Function to load posters
+async function loadPosters(page=1){
   posterGrid.innerHTML="Loading...";
   const query=encodeURIComponent(occEl.value+" festival poster");
   try{
-    const res=await fetch(`https://pixabay.com/api/?key=${PIXA_KEY}&q=${query}&image_type=photo&orientation=vertical&per_page=30&safesearch=true`);
+    const res=await fetch(`https://pixabay.com/api/?key=${PIXA_KEY}&q=${query}&image_type=photo&orientation=vertical&per_page=30&page=${page}&safesearch=true`);
     const data=await res.json();
     if(!data.hits || data.hits.length===0) throw new Error("No images");
     posterGrid.innerHTML="";
@@ -112,7 +116,10 @@ document.getElementById('loadPosters').onclick=async()=>{
     posterGrid.innerHTML="<p style='color:red'>❌ Error loading posters</p>";
     console.error(e);
   }
-};
+}
+
+document.getElementById('loadPosters').onclick=()=>{currentPage=1;loadPosters(currentPage);}
+document.getElementById('nextPosters').onclick=()=>{currentPage++;loadPosters(currentPage);};
 
 // --- Random message generator ---
 const messages={Diwali:{Friendly:{en:["Happy Diwali, {name}! Shine bright like the diyas!","{name}, may your home be filled with light and happiness!"],hi:["{name}, दीपावली की शुभकामनाएँ!","{name}, आपका जीवन खुशियों से जगमगाए!"]},Formal:{en:["Wishing you a prosperous and joyful Diwali, {name}."],hi:["{name}, दीपोत्सव आपके जीवन में सुख समृद्धि लाए।"]},Funny:{en:["Eat sweets, not crackers! Happy Diwali, {name}!"],hi:["{name}, मिठाई खाओ, टेंशन भूल जाओ — शुभ दीपावली!"]}},Birthday:{Friendly:{en:["Happy Birthday, {name}! Have a fantastic year ahead.","{name}, cheers to another great year!"],hi:["{name}, जन्मदिन की हार्दिक शुभकामनाएँ!","{name}, खुशियों से भरा हो आपका साल!"]},Formal:{en:["Wishing you a wonderful birthday, {name}."],hi:["{name}, जन्मदिन पर हार्दिक शुभेच्छाएँ।"]},Funny:{en:["{name}, stay young...at least online!"],hi:["{name}, अब तो मोमबत्तियाँ ज्यादा हैं केक से!"]}}};
