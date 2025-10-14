@@ -131,7 +131,7 @@ Make it short (1-2 sentences), festive, warm, and unique each time.`;
 
   try{
     msgEl.value="⏳ Generating message...";
-    const res=await fetch("/api/gemini",{
+    const res=await fetch("gemini.js",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({ prompt })
