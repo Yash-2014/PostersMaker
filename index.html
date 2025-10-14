@@ -84,8 +84,6 @@ button.ghost{background:#fff;border:1px solid #ddd}
 
 <script>
 const PIXA_KEY = "52750792-e7733c9281f1e2e96a903f5b5"; 
-const GEMINI_KEY = "AIzaSyB_mF-hpeuGCtpFVZ3krH02zulc5XIqOEs"; // ✅ Your Gemini API key
-
 const occEl=document.getElementById('occasion');
 const toneEl=document.getElementById('tone');
 const nameEl=document.getElementById('name');
@@ -115,13 +113,12 @@ async function loadPosters(page=1){
     });
   }catch(e){
     posterGrid.innerHTML="<p style='color:red'>❌ Error loading posters</p>";
-    console.error(e);
   }
 }
 document.getElementById('loadPosters').onclick=()=>{currentPage=1;loadPosters(currentPage);}
 document.getElementById('nextPosters').onclick=()=>{currentPage++;loadPosters(currentPage);};
 
-// Gemini message generator
+// Gemini message generator via backend proxy
 async function generateGeminiMessage(){
   const occ=occEl.value;
   const tone=toneEl.value;
@@ -134,17 +131,16 @@ Make it short (1-2 sentences), festive, warm, and unique each time.`;
 
   try{
     msgEl.value="⏳ Generating message...";
-    const res=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key="+GEMINI_KEY,{
+    const res=await fetch("/api/gemini",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})
+      body:JSON.stringify({ prompt })
     });
     const data=await res.json();
     const text=data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
     if(text){msgEl.value=text;renderPoster(text);}
     else{msgEl.value="⚠️ Unable to generate message, try again.";}
   }catch(err){
-    console.error(err);
     msgEl.value="❌ Error contacting Gemini API.";
   }
 }
