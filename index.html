@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AI Festival Poster & Message Maker</title>
+<style>
+body{font-family:system-ui,Roboto,sans-serif;background:#fff8ec;margin:0;color:#222}
+.wrap{max-width:900px;margin:auto;padding:16px}
+h1{font-size:20px;margin:0 0 12px;font-weight:600;color:#ff6f00;text-align:center}
+.card{background:#fff;border-radius:12px;box-shadow:0 3px 8px rgba(0,0,0,0.08);padding:12px;margin-bottom:12px}
+label{font-size:13px;color:#555;margin-bottom:4px;display:block}
+input,select,textarea,button{width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;font-size:15px;box-sizing:border-box}
+button.primary{background:#ff6f00;color:#fff;border:0;font-weight:500;cursor:pointer}
+.poster-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px;margin-top:8px;max-height:300px;overflow:auto}
+.poster-grid img{width:100%;border-radius:8px;object-fit:cover;height:100px;cursor:pointer;border:2px solid transparent}
+.poster-grid img.selected{border:2px solid #ff6f00}
+canvas{width:100%;border-radius:8px;background:#eee;margin-top:8px}
+.actions{display:flex;gap:8px;margin-top:10px}
+button.ghost{background:#fff;border:1px solid #ddd}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🪔 AI Festival Poster & Message Maker</h1>
+
+  <div class="card">
+    <label>Festival / Event</label>
+    <select id="occasion">
+      <option>Diwali</option>
+      <option>Holi</option>
+      <option>Independence Day</option>
+      <option>Birthday</option>
+      <option>Anniversary</option>
+      <option>Business Promotion</option>
+    </select>
+
+    <div style="height:8px"></div>
+    <label>Recipient Name (optional)</label>
+    <input id="name" placeholder="e.g. Rahul Sharma">
+
+    <div style="height:8px"></div>
+    <label>Tone</label>
+    <select id="tone"><option>Friendly</option><option>Formal</option><option>Funny</option></select>
+
+    <div style="height:8px"></div>
+    <label>Language</label>
+    <select id="lang">
+      <option value="both">Both (Hindi + English)</option>
+      <option value="hi">Hindi Only</option>
+      <option value="en">English Only</option>
+    </select>
+
+    <div style="height:8px"></div>
+    <button class="primary" id="loadPosters">Load Posters</button>
+  </div>
+
+  <div class="card">
+    <label>Posters (Tap to select or upload your own)</label>
+    <div class="poster-grid" id="posterGrid"></div>
+    <div style="margin-top:6px">
+      <input type="file" id="uploadPoster" accept="image/*">
+    </div>
+  </div>
+
+  <div class="card">
+    <label>Generated Message</label>
+    <textarea id="message" rows="4"></textarea>
+    <button class="primary" id="generateMsg">Generate Message</button>
+  </div>
+
+  <div class="card">
+    <label>Poster Preview</label>
+    <canvas id="canvas" width="720" height="1080"></canvas>
+    <div class="actions">
+      <button class="primary" id="downloadBtn">Download</button>
+      <button class="ghost" id="shareBtn">Share (WhatsApp)</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PIXA_KEY = "52750792-e7733c9281f1e2e96a903f5b5"; // ✅ Your Pixabay API key
+
+const occEl=document.getElementById('occasion');
+const toneEl=document.getElementById('tone');
+const nameEl=document.getElementById('name');
+const langEl=document.getElementById('lang');
+const msgEl=document.getElementById('message');
+const genMsg=document.getElementById('generateMsg');
+const posterGrid=document.getElementById('posterGrid');
+const canvas=document.getElementById('canvas');
+const ctx=canvas.getContext('2d');
+let selectedPoster=null;
+
+// Pixabay image loader
+document.getElementById('loadPosters').onclick=async()=>{
+  posterGrid.innerHTML="Loading...";
+  const query=encodeURIComponent(occEl.value+" festival poster");
+  try{
+    const res=await fetch(`https://pixabay.com/api/?key=${PIXA_KEY}&q=${query}&image_type=photo&orientation=vertical&per_page=30&safesearch=true`);
+    const data=await res.json();
+    if(!data.hits || data.hits.length===0) throw new Error("No images");
+    posterGrid.innerHTML="";
+    data.hits.forEach(img=>{
+      const el=document.createElement('img');
+      el.src=img.webformatURL;
+      el.onclick=()=>{document.querySelectorAll('.poster-grid img').forEach(i=>i.classList.remove('selected'));el.classList.add('selected');selectedPoster=img.largeImageURL;renderPoster(msgEl.value);}
+      posterGrid.appendChild(el);
+    });
+  }catch(e){
+    posterGrid.innerHTML="<p style='color:red'>❌ Error loading posters</p>";
+    console.error(e);
+  }
+};
+
+// --- Random message generator ---
+const messages={Diwali:{Friendly:{en:["Happy Diwali, {name}! Shine bright like the diyas!","{name}, may your home be filled with light and happiness!"],hi:["{name}, दीपावली की शुभकामनाएँ!","{name}, आपका जीवन खुशियों से जगमगाए!"]},Formal:{en:["Wishing you a prosperous and joyful Diwali, {name}."],hi:["{name}, दीपोत्सव आपके जीवन में सुख समृद्धि लाए।"]},Funny:{en:["Eat sweets, not crackers! Happy Diwali, {name}!"],hi:["{name}, मिठाई खाओ, टेंशन भूल जाओ — शुभ दीपावली!"]}},Birthday:{Friendly:{en:["Happy Birthday, {name}! Have a fantastic year ahead.","{name}, cheers to another great year!"],hi:["{name}, जन्मदिन की हार्दिक शुभकामनाएँ!","{name}, खुशियों से भरा हो आपका साल!"]},Formal:{en:["Wishing you a wonderful birthday, {name}."],hi:["{name}, जन्मदिन पर हार्दिक शुभेच्छाएँ।"]},Funny:{en:["{name}, stay young...at least online!"],hi:["{name}, अब तो मोमबत्तियाँ ज्यादा हैं केक से!"]}}};
+
+function rand(a){return a[Math.floor(Math.random()*a.length)];}
+genMsg.onclick=()=>{
+  const occ=occEl.value,tone=toneEl.value,lang=langEl.value;
+  const nm=nameEl.value||"Friend";const toneSet=messages[occ]?.[tone];
+  if(!toneSet){msgEl.value="";return;}
+  let msg="";
+  if(lang==="both"){msg=rand(toneSet.en).replace("{name}",nm)+"\n\n"+rand(toneSet.hi).replace("{name}",nm);}
+  else if(lang==="hi"){msg=rand(toneSet.hi).replace("{name}",nm);}
+  else{msg=rand(toneSet.en).replace("{name}",nm);}
+  msgEl.value=msg;renderPoster(msg);
+};
+
+function renderPoster(text){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(!selectedPoster){
+    ctx.fillStyle="#fff0cc";ctx.fillRect(0,0,canvas.width,canvas.height);
+  }else{
+    const img=new Image();img.crossOrigin="anonymous";
+    img.onload=()=>{ctx.drawImage(img,0,0,canvas.width,canvas.height);drawText(text);};
+    img.src=selectedPoster;
+  }drawText(text);
+}
+function drawText(text){
+  ctx.fillStyle="rgba(0,0,0,0.8)";
+  ctx.font="bold 26px system-ui";
+  const lines=text.split(/\n/);let y=canvas.height-200;
+  for(const l of lines){wrapLine(l,y);y+=36;}
+}
+function wrapLine(text,y){
+  const words=text.split(" ");let line="",maxWidth=canvas.width-40,x=20;
+  for(let i=0;i<words.length;i++){
+    const test=line+words[i]+" ";const m=ctx.measureText(test);
+    if(m.width>maxWidth){ctx.fillText(line,x,y);line=words[i]+" ";y+=32;}else{line=test;}
+  }ctx.fillText(line,x,y);
+}
+document.getElementById('uploadPoster').onchange=e=>{
+  const file=e.target.files[0];if(!file)return;
+  const url=URL.createObjectURL(file);
+  selectedPoster=url;
+  const img=document.createElement('img');
+  img.src=url;img.classList.add('selected');
+  posterGrid.prepend(img);
+  renderPoster(msgEl.value);
+};
+document.getElementById('downloadBtn').onclick=()=>{
+  canvas.toBlob(b=>{
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(b);
+    a.download="poster.png";
+    a.click();
+  });
+};
+document.getElementById('shareBtn').onclick=async()=>{
+  const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
+  const file=new File([blob],"poster.png",{type:'image/png'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    await navigator.share({files:[file],text:msgEl.value});
+  }else{
+    const txt=encodeURIComponent(msgEl.value);
+    window.open("https://wa.me/?text="+txt,"_blank");
+  }
+};
+renderPoster("Select poster and generate message!");
+</script>
+</body>
+</html>
